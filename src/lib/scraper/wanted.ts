@@ -10,7 +10,9 @@ export async function scrapeWanted(browser: Browser, category = '873'): Promise<
   const page = await context.newPage();
 
   try {
+    console.log(`[원티드] 페이지 로딩 중...`);
     await page.goto(url, { waitUntil: 'networkidle', timeout: 20000 });
+    console.log(`[원티드] 페이지 로드 완료, 공고 리스트 대기 중...`);
     await page.waitForSelector('li[data-cy="job-card"]', { timeout: 10000 });
 
     for (let i = 0; i < 3; i++) {
@@ -43,8 +45,17 @@ export async function scrapeWanted(browser: Browser, category = '873'): Promise<
       });
     }, today());
 
-    console.log(`[원티드] ${jobs.length}건 수집`);
+    if (jobs.length === 0) {
+      console.warn('[원티드] ⚠️  수집된 공고 0건 — 선택자가 변경됐을 수 있음');
+      const html = await page.content();
+      console.warn('[원티드] 페이지 HTML 앞부분:', html.slice(0, 500));
+    } else {
+      console.log(`[원티드] ✅ ${jobs.length}건 수집`);
+    }
     return jobs;
+  } catch (err) {
+    console.error('[원티드] 예외 발생:', err instanceof Error ? err.message : err);
+    throw err;
   } finally {
     await context.close();
   }

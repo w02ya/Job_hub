@@ -11,8 +11,11 @@ export async function scrapeSaramin(browser: Browser): Promise<JobPosting[]> {
   const page = await context.newPage();
 
   try {
+    console.log('[사람인] 페이지 로딩 중...');
     await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 20000 });
+    console.log('[사람인] 페이지 로드 완료, 리스트 대기 중...');
     await page.waitForSelector('.list_body .item_recruit', { timeout: 12000 });
+    console.log('[사람인] 리스트 선택자 발견');
 
     const jobs = await page.evaluate((t: string) => {
       return Array.from(document.querySelectorAll('.list_body .item_recruit')).slice(0, 30).map((item) => {
@@ -39,8 +42,15 @@ export async function scrapeSaramin(browser: Browser): Promise<JobPosting[]> {
       });
     }, today());
 
-    console.log(`[사람인] ${jobs.length}건 수집`);
+    if (jobs.length === 0) {
+      console.warn('[사람인] ⚠️  수집된 공고 0건 — 선택자 확인 필요');
+    } else {
+      console.log(`[사람인] ✅ ${jobs.length}건 수집`);
+    }
     return jobs;
+  } catch (err) {
+    console.error('[사람인] 예외 발생:', err instanceof Error ? err.message : err);
+    throw err;
   } finally {
     await context.close();
   }

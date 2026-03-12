@@ -101,13 +101,21 @@ async function startServer() {
       ? String(platforms).split(",")
       : ["원티드", "사람인", "잡코리아", "로켓펀치", "잡플래닛", "링커리어"];
 
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log(`[API] /api/jobs 요청 수신`);
+    console.log(`[API] 직군 카테고리: ${category}`);
+    console.log(`[API] 요청 플랫폼: ${requestedPlatforms.join(", ")}`);
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
     let browser;
     try {
+      console.log("[API] Chromium 브라우저 실행 중...");
       browser = await chromium.launch({
         headless: true,
         executablePath: process.env.CHROMIUM_PATH || undefined,
         args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
       });
+      console.log("[API] 브라우저 실행 완료");
 
       const scrapers: { name: string; fn: () => Promise<any[]> }[] = [
         { name: "원티드",   fn: () => scrapeWanted(browser!, String(category)) },
@@ -118,23 +126,32 @@ async function startServer() {
         { name: "링커리어", fn: () => scrapeLinkareer(browser!) },
       ].filter((s) => requestedPlatforms.includes(s.name));
 
+      console.log(`[API] ${scrapers.length}개 크롤러 병렬 실행 시작`);
+      const startTime = Date.now();
+
       const results = await Promise.allSettled(scrapers.map((s) => s.fn()));
+
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(`[API] 전체 크롤링 완료 (${elapsed}초)`);
 
       const jobs: any[] = [];
       const errors: string[] = [];
 
       results.forEach((result, i) => {
+        const name = scrapers[i].name;
         if (result.status === "fulfilled") {
+          console.log(`[API] ✅ ${name}: ${result.value.length}건 수집`);
           jobs.push(...result.value);
         } else {
-          const name = scrapers[i].name;
           const msg = result.reason instanceof Error ? result.reason.message : String(result.reason);
-          console.error(`[${name}] 실패:`, msg);
+          console.error(`[API] ❌ ${name} 실패: ${msg}`);
           errors.push(`${name}: ${msg}`);
         }
       });
 
       await browser.close();
+      console.log(`[API] 최종 수집 합계: ${jobs.length}건 | 실패: ${errors.length}건`);
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
       res.json({
         success: true,
@@ -144,7 +161,7 @@ async function startServer() {
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      console.error("API /api/jobs 오류:", error);
+      console.error("[API] 치명적 오류:", error);
       if (browser) await browser.close();
       res.status(500).json({
         success: false,

@@ -10,11 +10,12 @@ export async function scrapeJobkorea(browser: Browser): Promise<JobPosting[]> {
   const page = await context.newPage();
 
   try {
+    console.log('[잡코리아] 페이지 로딩 중...');
     await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 20000 });
-
-    // 잡코리아는 두 가지 레이아웃 선택자 시도
+    console.log('[잡코리아] 페이지 로드 완료, 리스트 대기 중...');
     const selector = '.list-default .post-list-line, .list-default li.post-list-line';
     await page.waitForSelector(selector, { timeout: 12000 });
+    console.log('[잡코리아] 리스트 선택자 발견');
 
     const jobs = await page.evaluate((t: string) => {
       const items = document.querySelectorAll('.list-default .post-list-line');
@@ -42,8 +43,15 @@ export async function scrapeJobkorea(browser: Browser): Promise<JobPosting[]> {
       });
     }, today());
 
-    console.log(`[잡코리아] ${jobs.length}건 수집`);
+    if (jobs.length === 0) {
+      console.warn('[잡코리아] ⚠️  수집된 공고 0건 — 선택자 확인 필요');
+    } else {
+      console.log(`[잡코리아] ✅ ${jobs.length}건 수집`);
+    }
     return jobs;
+  } catch (err) {
+    console.error('[잡코리아] 예외 발생:', err instanceof Error ? err.message : err);
+    throw err;
   } finally {
     await context.close();
   }
