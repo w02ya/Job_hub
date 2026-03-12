@@ -2,6 +2,12 @@ import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { chromium } from "playwright";
+import { scrapeWanted } from "./src/lib/scraper/wanted";
+import { scrapeSaramin } from "./src/lib/scraper/saramin";
+import { scrapeJobkorea } from "./src/lib/scraper/jobkorea";
+import { scrapeRocketpunch } from "./src/lib/scraper/rocketpunch";
+import { scrapeJobplanet } from "./src/lib/scraper/jobplanet";
+import { scrapeLinkareer } from "./src/lib/scraper/linkareer";
 
 async function startServer() {
   const app = express();
@@ -84,6 +90,66 @@ async function startServer() {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
         timestamp: new Date().toISOString()
+      });
+    }
+  });
+
+  // ── 6개 플랫폼 통합 크롤링 API ─────────────────────────────
+  app.get("/api/jobs", async (req, res) => {
+    const { category = "873", platforms } = req.query;
+    const requestedPlatforms = platforms
+      ? String(platforms).split(",")
+      : ["원티드", "사람인", "잡코리아", "로켓펀치", "잡플래닛", "링커리어"];
+
+    let browser;
+    try {
+      browser = await chromium.launch({
+        headless: true,
+        executablePath: process.env.CHROMIUM_PATH || undefined,
+        args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+      });
+
+      const scrapers: { name: string; fn: () => Promise<any[]> }[] = [
+        { name: "원티드",   fn: () => scrapeWanted(browser!, String(category)) },
+        { name: "사람인",   fn: () => scrapeSaramin(browser!) },
+        { name: "잡코리아", fn: () => scrapeJobkorea(browser!) },
+        { name: "로켓펀치", fn: () => scrapeRocketpunch(browser!) },
+        { name: "잡플래닛", fn: () => scrapeJobplanet(browser!) },
+        { name: "링커리어", fn: () => scrapeLinkareer(browser!) },
+      ].filter((s) => requestedPlatforms.includes(s.name));
+
+      const results = await Promise.allSettled(scrapers.map((s) => s.fn()));
+
+      const jobs: any[] = [];
+      const errors: string[] = [];
+
+      results.forEach((result, i) => {
+        if (result.status === "fulfilled") {
+          jobs.push(...result.value);
+        } else {
+          const name = scrapers[i].name;
+          const msg = result.reason instanceof Error ? result.reason.message : String(result.reason);
+          console.error(`[${name}] 실패:`, msg);
+          errors.push(`${name}: ${msg}`);
+        }
+      });
+
+      await browser.close();
+
+      res.json({
+        success: true,
+        data: jobs,
+        errors: errors.length ? errors : undefined,
+        count: jobs.length,
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("API /api/jobs 오류:", error);
+      if (browser) await browser.close();
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Unknown error",
+        timestamp: new Date().toISOString(),
       });
     }
   });

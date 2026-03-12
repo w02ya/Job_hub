@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { AnimatePresence } from 'motion/react';
 import { RefreshCw } from 'lucide-react';
-import { JobPosting, ScrapeResponse } from './types';
+import { JobPosting } from './types/job';
 import { scrapeAll } from './lib/scraper/dummy';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -17,6 +17,9 @@ export default function App() {
   const [jobs, setJobs] = useState<JobPosting[]>([]);
   const [loading, setLoading] = useState(false);
   const [usingDummy, setUsingDummy] = useState(false);
+  const [activePlatforms, setActivePlatforms] = useState<string[]>([
+    '원티드', '사람인', '잡코리아', '로켓펀치', '잡플래닛', '링커리어',
+  ]);
 
   // 필터 상태
   const [category, setCategory] = useState('873');
@@ -29,18 +32,21 @@ export default function App() {
     setLoading(true);
     setUsingDummy(false);
     try {
-      const response = await fetch(`/api/scrape/wanted?category=${category}`);
-      const result: ScrapeResponse = await response.json();
+      const params = new URLSearchParams({
+        category,
+        platforms: activePlatforms.join(','),
+      });
+      const response = await fetch(`/api/jobs?${params}`);
+      const result = await response.json();
+
       if (result.success && result.data.length > 0) {
         setJobs(result.data);
       } else {
-        // API 실패 시 더미 데이터로 대체
         const dummyData = await scrapeAll();
         setJobs(dummyData);
         setUsingDummy(true);
       }
     } catch {
-      // 서버 미연결 시 더미 데이터 표시
       const dummyData = await scrapeAll();
       setJobs(dummyData);
       setUsingDummy(true);
@@ -58,6 +64,9 @@ export default function App() {
       job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       job.company.toLowerCase().includes(searchTerm.toLowerCase());
 
+    const matchPlatform =
+      activePlatforms.length === 0 || activePlatforms.includes(job.platform);
+
     const matchLocation =
       location === '전체 지역' || job.location.includes(location.replace(' 전체', ''));
 
@@ -65,7 +74,7 @@ export default function App() {
       selectedStacks.length === 0 ||
       selectedStacks.some(s => job.techStacks.includes(s));
 
-    return matchSearch && matchLocation && matchStack;
+    return matchSearch && matchPlatform && matchLocation && matchStack;
   });
 
   const categoryLabel = category === '873' ? '프론트엔드' : '백엔드';
@@ -81,6 +90,8 @@ export default function App() {
         setLocation={setLocation}
         selectedStacks={selectedStacks}
         setSelectedStacks={setSelectedStacks}
+        activePlatforms={activePlatforms}
+        setActivePlatforms={setActivePlatforms}
       />
 
       <main className="flex-1 p-8">
@@ -95,7 +106,7 @@ export default function App() {
         <div className="grid grid-cols-3 gap-6 mb-10">
           <StatsCard label="수집된 공고" value={loading ? '...' : jobs.length} />
           <StatsCard label="검색 결과" value={filteredJobs.length} highlight />
-          <StatsCard label="활성 플랫폼" value="1" />
+          <StatsCard label="활성 플랫폼" value={activePlatforms.length} />
         </div>
 
         {/* 공고 리스트 */}
@@ -116,7 +127,9 @@ export default function App() {
             {loading ? (
               <div className="flex flex-col items-center justify-center py-20 gap-4">
                 <RefreshCw className="h-12 w-12 text-[#007bff] animate-spin" />
-                <p className="text-slate-500 font-medium">원티드에서 데이터를 가져오는 중입니다...</p>
+                <p className="text-slate-500 font-medium">
+                  {activePlatforms.join(', ')}에서 데이터를 가져오는 중입니다...
+                </p>
               </div>
             ) : filteredJobs.length > 0 ? (
               filteredJobs.map((job, idx) => (

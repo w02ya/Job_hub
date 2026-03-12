@@ -10,9 +10,11 @@ interface SidebarProps {
   setLocation: (l: string) => void;
   selectedStacks: string[];
   setSelectedStacks: (s: string[]) => void;
+  activePlatforms: string[];
+  setActivePlatforms: (p: string[]) => void;
 }
 
-const PLATFORMS = ['원티드', '사람인', '잡코리아', '로켓펀치'];
+const PLATFORMS = ['원티드', '사람인', '잡코리아', '로켓펀치', '잡플래닛', '링커리어'];
 const TECH_STACKS = ['React', 'Vue', 'TypeScript', 'Node.js', 'Python', 'Java', 'Spring', 'Go', 'Kotlin', 'Swift'];
 const EXPERIENCES = ['신입', '1-3년', '4-6년', '시니어(7년+)'];
 const LOCATIONS = ['전체 지역', '서울 전체', '경기 전체', '인천', '대전', '부산'];
@@ -22,6 +24,7 @@ export default function Sidebar({
   experience, setExperience,
   location, setLocation,
   selectedStacks, setSelectedStacks,
+  activePlatforms, setActivePlatforms,
 }: SidebarProps) {
   const [stackSearch, setStackSearch] = useState('');
 
@@ -34,6 +37,14 @@ export default function Sidebar({
       selectedStacks.includes(stack)
         ? selectedStacks.filter(s => s !== stack)
         : [...selectedStacks, stack]
+    );
+  };
+
+  const togglePlatform = (platform: string) => {
+    setActivePlatforms(
+      activePlatforms.includes(platform)
+        ? activePlatforms.filter(p => p !== platform)
+        : [...activePlatforms, platform]
     );
   };
 
@@ -60,15 +71,11 @@ export default function Sidebar({
               <label key={p} className="flex items-center text-sm cursor-pointer group">
                 <input
                   type="checkbox"
-                  checked={p === '원티드'}
-                  readOnly
-                  disabled={p !== '원티드'}
-                  className="rounded border-slate-300 text-[#007bff] focus:ring-[#007bff] mr-3 disabled:opacity-40"
+                  checked={activePlatforms.includes(p)}
+                  onChange={() => togglePlatform(p)}
+                  className="rounded border-slate-300 text-[#007bff] focus:ring-[#007bff] mr-3"
                 />
-                <span className={`group-hover:text-[#007bff] ${p !== '원티드' ? 'text-slate-400' : 'text-slate-600'}`}>
-                  {p}
-                  {p !== '원티드' && <span className="ml-1 text-[10px] text-slate-300">(준비중)</span>}
-                </span>
+                <span className="text-slate-600 group-hover:text-[#007bff]">{p}</span>
               </label>
             ))}
           </div>
