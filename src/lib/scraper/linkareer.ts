@@ -1,12 +1,13 @@
 import { Browser } from 'playwright';
 import { JobPosting } from '../../types/job';
-import { createLightContext, today } from './utils';
+import { DEFAULT_UA, today } from './utils';
 
 const URL = 'https://linkareer.com/list/recruit';
 
 export async function scrapeLinkareer(browser: Browser): Promise<JobPosting[]> {
   console.log('[링커리어] 크롤링 시작');
-  const context = await createLightContext(browser);
+  // CSS 차단 시 카드가 렌더링 안 되므로 일반 컨텍스트 사용
+  const context = await browser.newContext({ userAgent: DEFAULT_UA, viewport: { width: 1280, height: 800 } });
   const page = await context.newPage();
 
   try {

@@ -17,7 +17,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activePlatforms, setActivePlatforms] = useState<string[]>([
-    '원티드', '사람인', '잡코리아', '로켓펀치', '잡플래닛', '링커리어',
+    '원티드', '잡코리아', '잡플래닛', '링커리어',
   ]);
 
   const [category, setCategory] = useState('873');

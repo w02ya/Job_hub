@@ -14,7 +14,14 @@ interface SidebarProps {
   setActivePlatforms: (p: string[]) => void;
 }
 
-const PLATFORMS = ['원티드', '사람인', '잡코리아', '로켓펀치', '잡플래닛', '링커리어'];
+const PLATFORMS = [
+  { name: '원티드',   available: true },
+  { name: '잡코리아', available: true },
+  { name: '잡플래닛', available: true },
+  { name: '링커리어', available: true },
+  { name: '사람인',   available: false },  // 봇 차단
+  { name: '로켓펀치', available: false },  // CloudFront 차단
+];
 const TECH_STACKS = ['React', 'Vue', 'TypeScript', 'Node.js', 'Python', 'Java', 'Spring', 'Go', 'Kotlin', 'Swift'];
 const EXPERIENCES = ['신입', '1-3년', '4-6년', '시니어(7년+)'];
 const LOCATIONS = ['전체 지역', '서울 전체', '경기 전체', '인천', '대전', '부산'];
@@ -67,15 +74,19 @@ export default function Sidebar({
             <ChevronDown className="h-4 w-4 text-slate-400" />
           </h3>
           <div className="space-y-3">
-            {PLATFORMS.map(p => (
-              <label key={p} className="flex items-center text-sm cursor-pointer group">
+            {PLATFORMS.map(({ name, available }) => (
+              <label key={name} className={`flex items-center text-sm ${available ? 'cursor-pointer group' : 'cursor-not-allowed opacity-40'}`}>
                 <input
                   type="checkbox"
-                  checked={activePlatforms.includes(p)}
-                  onChange={() => togglePlatform(p)}
-                  className="rounded border-slate-300 text-[#007bff] focus:ring-[#007bff] mr-3"
+                  checked={available && activePlatforms.includes(name)}
+                  onChange={() => available && togglePlatform(name)}
+                  disabled={!available}
+                  className="rounded border-slate-300 text-[#007bff] focus:ring-[#007bff] mr-3 disabled:opacity-50"
                 />
-                <span className="text-slate-600 group-hover:text-[#007bff]">{p}</span>
+                <span className="text-slate-600 group-hover:text-[#007bff]">
+                  {name}
+                  {!available && <span className="ml-1 text-[10px] text-slate-300">(준비중)</span>}
+                </span>
               </label>
             ))}
           </div>
