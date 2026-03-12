@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { AnimatePresence } from 'motion/react';
 import { RefreshCw } from 'lucide-react';
 import { JobPosting, ScrapeResponse } from './types';
+import { scrapeAll } from './lib/scraper/dummy';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import StatsCard from './components/StatsCard';
@@ -15,6 +16,7 @@ import JobCard from './components/JobCard';
 export default function App() {
   const [jobs, setJobs] = useState<JobPosting[]>([]);
   const [loading, setLoading] = useState(false);
+  const [usingDummy, setUsingDummy] = useState(false);
 
   // 필터 상태
   const [category, setCategory] = useState('873');
@@ -25,16 +27,23 @@ export default function App() {
 
   const fetchJobs = async () => {
     setLoading(true);
+    setUsingDummy(false);
     try {
       const response = await fetch(`/api/scrape/wanted?category=${category}`);
       const result: ScrapeResponse = await response.json();
-      if (result.success) {
+      if (result.success && result.data.length > 0) {
         setJobs(result.data);
       } else {
-        console.error('Scraping failed:', result.error);
+        // API 실패 시 더미 데이터로 대체
+        const dummyData = await scrapeAll();
+        setJobs(dummyData);
+        setUsingDummy(true);
       }
-    } catch (error) {
-      console.error('Fetch error:', error);
+    } catch {
+      // 서버 미연결 시 더미 데이터 표시
+      const dummyData = await scrapeAll();
+      setJobs(dummyData);
+      setUsingDummy(true);
     } finally {
       setLoading(false);
     }
@@ -93,7 +102,14 @@ export default function App() {
         <div className="space-y-6">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-xl font-bold text-slate-800">{categoryLabel} 채용 공고</h2>
-            <div className="text-sm text-slate-500">최신순</div>
+            <div className="flex items-center gap-3 text-sm text-slate-500">
+              {usingDummy && (
+                <span className="px-2 py-0.5 bg-amber-50 text-amber-600 border border-amber-200 rounded-full text-xs font-semibold">
+                  더미 데이터
+                </span>
+              )}
+              최신순
+            </div>
           </div>
 
           <AnimatePresence mode="popLayout">
