@@ -10,31 +10,33 @@ export async function scrapeLinkareer(browser: Browser): Promise<JobPosting[]> {
   const page = await context.newPage();
 
   try {
-    console.log('[링커리어] 페이지 로딩 중...');
-    await page.goto(URL, { waitUntil: 'load', timeout: 25000 });
+    await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 25000 });
     console.log('[링커리어] 페이지 로드 완료');
 
-    const bodyText = await page.evaluate(() => document.body.innerHTML.slice(0, 2000));
-    console.log('[링커리어] body HTML 앞부분:', bodyText);
-
-    await page.waitForSelector('article[class*="ActivityCard"], .activity-card, .list-item', { timeout: 10000 });
+    // 로그에서 MuiListItem-root list-item 확인됨
+    await page.waitForSelector('.list-item', { state: 'attached', timeout: 12000 });
+    console.log('[링커리어] .list-item 발견');
 
     const jobs = await page.evaluate((t: string) => {
-      const items = document.querySelectorAll('article[class*="ActivityCard"], .activity-card, .list-item');
+      const items = document.querySelectorAll('.list-item');
       return Array.from(items).slice(0, 30).map((item) => {
-        const titleEl = item.querySelector('h3 a, h4 a, .title a, [class*="title"] a');
-        const companyEl = item.querySelector('[class*="organization"], [class*="company"], .org-name');
-        const locationEl = item.querySelector('[class*="location"], .location');
-        const deadlineEl = item.querySelector('[class*="deadline"], .deadline, time');
-        const href = titleEl?.getAttribute('href') ?? item.querySelector('a')?.getAttribute('href') ?? '';
+        // 링커리어 MUI 구조: 링크 내 텍스트 추출
+        const link = item.querySelector('a[href*="/recruit/"], a[href*="/activity/"]') as HTMLAnchorElement | null;
+        const allLinks = item.querySelectorAll('a');
+        const titleEl =
+          item.querySelector('h2, h3, h4, [class*="title"], [class*="Title"]') ??
+          (allLinks[0] ?? null);
+        const companyEl = item.querySelector('[class*="organization"], [class*="company"], [class*="org"]');
+        const deadlineEl = item.querySelector('[class*="deadline"], [class*="date"], time');
+        const href = link?.href ?? (allLinks[0] as HTMLAnchorElement)?.href ?? '';
         const id = href.split('/').pop() ?? Math.random().toString(36).slice(2, 9);
 
         return {
           id: `linkareer-${id}`,
           platform: '링커리어',
           company: companyEl?.textContent?.trim() ?? 'Unknown',
-          title: titleEl?.textContent?.trim() ?? 'No Title',
-          location: locationEl?.textContent?.trim() ?? '미상',
+          title: titleEl?.textContent?.trim() ?? item.textContent?.slice(0, 50)?.trim() ?? 'No Title',
+          location: '미상',
           experience: '신입/경력',
           techStacks: [] as string[],
           url: href.startsWith('http') ? href : `https://linkareer.com${href}`,
@@ -47,7 +49,7 @@ export async function scrapeLinkareer(browser: Browser): Promise<JobPosting[]> {
     console.log(`[링커리어] ✅ ${jobs.length}건 수집`);
     return jobs;
   } catch (err) {
-    console.error('[링커리어] ❌ 실패 (빈 배열 반환):', err instanceof Error ? err.message : err);
+    console.error('[링커리어] ❌ 실패:', err instanceof Error ? err.message : err);
     return [];
   } finally {
     await context.close();

@@ -10,22 +10,24 @@ export async function scrapeSaramin(browser: Browser): Promise<JobPosting[]> {
   const page = await context.newPage();
 
   try {
-    console.log('[사람인] 페이지 로딩 중...');
-    await page.goto(URL, { waitUntil: 'load', timeout: 25000 });
+    await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 25000 });
     console.log('[사람인] 페이지 로드 완료');
 
-    // 실제 선택자 확인용: 어떤 요소들이 있는지 로그
-    const bodyText = await page.evaluate(() => document.body.innerHTML.slice(0, 2000));
-    console.log('[사람인] body HTML 앞부분:', bodyText);
-
-    await page.waitForSelector('.list_body .item_recruit', { timeout: 10000 });
+    // 사람인 실제 선택자 — 여러 가지 시도
+    const selector = '.list_body .item_recruit, .list_item, .job_list .item';
+    await page.waitForSelector(selector, { state: 'attached', timeout: 10000 });
 
     const jobs = await page.evaluate((t: string) => {
-      return Array.from(document.querySelectorAll('.list_body .item_recruit')).slice(0, 30).map((item) => {
-        const titleEl = item.querySelector('.job_tit a');
-        const companyEl = item.querySelector('.corp_name a');
-        const locationEl = item.querySelector('.work_place');
-        const experienceEl = item.querySelector('.career');
+      const items =
+        document.querySelectorAll('.list_body .item_recruit').length > 0
+          ? document.querySelectorAll('.list_body .item_recruit')
+          : document.querySelectorAll('.list_item');
+
+      return Array.from(items).slice(0, 30).map((item) => {
+        const titleEl = item.querySelector('.job_tit a, .tit a, h2 a');
+        const companyEl = item.querySelector('.corp_name a, .company a');
+        const locationEl = item.querySelector('.work_place, .location');
+        const experienceEl = item.querySelector('.career, .experience');
         const href = titleEl?.getAttribute('href') ?? '';
         const id = href.match(/seq=(\d+)/)?.[1] ?? Math.random().toString(36).slice(2, 9);
 
@@ -47,8 +49,7 @@ export async function scrapeSaramin(browser: Browser): Promise<JobPosting[]> {
     console.log(`[사람인] ✅ ${jobs.length}건 수집`);
     return jobs;
   } catch (err) {
-    // 선택자 실패 시 빈 배열 반환 (전체 API 실패 방지)
-    console.error('[사람인] ❌ 실패 (빈 배열 반환):', err instanceof Error ? err.message : err);
+    console.error('[사람인] ❌ 실패:', err instanceof Error ? err.message : err);
     return [];
   } finally {
     await context.close();
