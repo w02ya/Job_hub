@@ -8,4 +8,4 @@ cmds = ["npm ci", "npx playwright install chromium"]
 cmds = ["npm run build"]
 
 [start]
-cmd = "NODE_ENV=production node --loader tsx/esm server.ts"
+cmd = "NODE_ENV=production npx tsx server.ts"

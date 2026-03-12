@@ -2,7 +2,6 @@ import { Browser } from 'playwright';
 import { JobPosting } from '../../types/job';
 import { createLightContext, today } from './utils';
 
-// cat_kewd=2232: IT개발/데이터
 const URL = 'https://www.saramin.co.kr/zf_user/jobs/list/job-category?cat_kewd=2232&panel_type=list&search_optional_item=y&search_done=y&panel_count=y&page_count=40&sort=RL&type=job';
 
 export async function scrapeSaramin(browser: Browser): Promise<JobPosting[]> {
@@ -12,10 +11,14 @@ export async function scrapeSaramin(browser: Browser): Promise<JobPosting[]> {
 
   try {
     console.log('[사람인] 페이지 로딩 중...');
-    await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 20000 });
-    console.log('[사람인] 페이지 로드 완료, 리스트 대기 중...');
-    await page.waitForSelector('.list_body .item_recruit', { timeout: 12000 });
-    console.log('[사람인] 리스트 선택자 발견');
+    await page.goto(URL, { waitUntil: 'load', timeout: 25000 });
+    console.log('[사람인] 페이지 로드 완료');
+
+    // 실제 선택자 확인용: 어떤 요소들이 있는지 로그
+    const bodyText = await page.evaluate(() => document.body.innerHTML.slice(0, 2000));
+    console.log('[사람인] body HTML 앞부분:', bodyText);
+
+    await page.waitForSelector('.list_body .item_recruit', { timeout: 10000 });
 
     const jobs = await page.evaluate((t: string) => {
       return Array.from(document.querySelectorAll('.list_body .item_recruit')).slice(0, 30).map((item) => {
@@ -24,7 +27,6 @@ export async function scrapeSaramin(browser: Browser): Promise<JobPosting[]> {
         const locationEl = item.querySelector('.work_place');
         const experienceEl = item.querySelector('.career');
         const href = titleEl?.getAttribute('href') ?? '';
-
         const id = href.match(/seq=(\d+)/)?.[1] ?? Math.random().toString(36).slice(2, 9);
 
         return {
@@ -42,15 +44,12 @@ export async function scrapeSaramin(browser: Browser): Promise<JobPosting[]> {
       });
     }, today());
 
-    if (jobs.length === 0) {
-      console.warn('[사람인] ⚠️  수집된 공고 0건 — 선택자 확인 필요');
-    } else {
-      console.log(`[사람인] ✅ ${jobs.length}건 수집`);
-    }
+    console.log(`[사람인] ✅ ${jobs.length}건 수집`);
     return jobs;
   } catch (err) {
-    console.error('[사람인] 예외 발생:', err instanceof Error ? err.message : err);
-    throw err;
+    // 선택자 실패 시 빈 배열 반환 (전체 API 실패 방지)
+    console.error('[사람인] ❌ 실패 (빈 배열 반환):', err instanceof Error ? err.message : err);
+    return [];
   } finally {
     await context.close();
   }

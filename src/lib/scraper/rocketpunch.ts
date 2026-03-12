@@ -11,19 +11,20 @@ export async function scrapeRocketpunch(browser: Browser): Promise<JobPosting[]>
 
   try {
     console.log('[로켓펀치] 페이지 로딩 중...');
-    await page.goto(URL, { waitUntil: 'networkidle', timeout: 25000 });
-    console.log('[로켓펀치] 페이지 로드 완료, 리스트 대기 중...');
-    await page.waitForSelector('.job.item, .jobs-list .item', { timeout: 12000 });
-    console.log('[로켓펀치] 리스트 선택자 발견');
+    await page.goto(URL, { waitUntil: 'load', timeout: 25000 });
+    console.log('[로켓펀치] 페이지 로드 완료');
+
+    const bodyText = await page.evaluate(() => document.body.innerHTML.slice(0, 2000));
+    console.log('[로켓펀치] body HTML 앞부분:', bodyText);
+
+    await page.waitForSelector('.job.item', { timeout: 10000 });
 
     const jobs = await page.evaluate((t: string) => {
-      const items = document.querySelectorAll('.job.item');
-      return Array.from(items).slice(0, 30).map((item) => {
+      return Array.from(document.querySelectorAll('.job.item')).slice(0, 30).map((item) => {
         const titleEl = item.querySelector('.name a, .job-name a');
         const companyEl = item.querySelector('.company-name a, .startup-name a');
         const locationEl = item.querySelector('.location, .job-location');
         const techEls = item.querySelectorAll('.tag, .skill-tag');
-
         const href = titleEl?.getAttribute('href') ?? '';
         const id = href.split('/').pop() ?? Math.random().toString(36).slice(2, 9);
 
@@ -42,15 +43,11 @@ export async function scrapeRocketpunch(browser: Browser): Promise<JobPosting[]>
       });
     }, today());
 
-    if (jobs.length === 0) {
-      console.warn('[로켓펀치] ⚠️  수집된 공고 0건 — 선택자 확인 필요');
-    } else {
-      console.log(`[로켓펀치] ✅ ${jobs.length}건 수집`);
-    }
+    console.log(`[로켓펀치] ✅ ${jobs.length}건 수집`);
     return jobs;
   } catch (err) {
-    console.error('[로켓펀치] 예외 발생:', err instanceof Error ? err.message : err);
-    throw err;
+    console.error('[로켓펀치] ❌ 실패 (빈 배열 반환):', err instanceof Error ? err.message : err);
+    return [];
   } finally {
     await context.close();
   }

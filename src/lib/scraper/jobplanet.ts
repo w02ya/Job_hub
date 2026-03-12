@@ -11,20 +11,21 @@ export async function scrapeJobplanet(browser: Browser): Promise<JobPosting[]> {
 
   try {
     console.log('[잡플래닛] 페이지 로딩 중...');
-    await page.goto(URL, { waitUntil: 'networkidle', timeout: 25000 });
-    console.log('[잡플래닛] 페이지 로드 완료, 리스트 대기 중...');
-    await page.waitForSelector('.wr-card-wrap li, .job-list-item', { timeout: 12000 });
-    console.log('[잡플래닛] 리스트 선택자 발견');
+    await page.goto(URL, { waitUntil: 'load', timeout: 25000 });
+    console.log('[잡플래닛] 페이지 로드 완료');
+
+    const bodyText = await page.evaluate(() => document.body.innerHTML.slice(0, 2000));
+    console.log('[잡플래닛] body HTML 앞부분:', bodyText);
+
+    await page.waitForSelector('.wr-card-wrap li', { timeout: 10000 });
 
     const jobs = await page.evaluate((t: string) => {
-      const items = document.querySelectorAll('.wr-card-wrap li');
-      return Array.from(items).slice(0, 30).map((item) => {
+      return Array.from(document.querySelectorAll('.wr-card-wrap li')).slice(0, 30).map((item) => {
         const titleEl = item.querySelector('.job-name a, .name a, h4 a');
         const companyEl = item.querySelector('.company-name a, .corp-name a');
         const locationEl = item.querySelector('.location, .loc');
         const experienceEl = item.querySelector('.experience, .career');
         const techEls = item.querySelectorAll('.skill, .tag');
-
         const href = titleEl?.getAttribute('href') ?? '';
         const id = href.match(/\/(\d+)/)?.[1] ?? Math.random().toString(36).slice(2, 9);
 
@@ -43,15 +44,11 @@ export async function scrapeJobplanet(browser: Browser): Promise<JobPosting[]> {
       });
     }, today());
 
-    if (jobs.length === 0) {
-      console.warn('[잡플래닛] ⚠️  수집된 공고 0건 — 선택자 확인 필요');
-    } else {
-      console.log(`[잡플래닛] ✅ ${jobs.length}건 수집`);
-    }
+    console.log(`[잡플래닛] ✅ ${jobs.length}건 수집`);
     return jobs;
   } catch (err) {
-    console.error('[잡플래닛] 예외 발생:', err instanceof Error ? err.message : err);
-    throw err;
+    console.error('[잡플래닛] ❌ 실패 (빈 배열 반환):', err instanceof Error ? err.message : err);
+    return [];
   } finally {
     await context.close();
   }

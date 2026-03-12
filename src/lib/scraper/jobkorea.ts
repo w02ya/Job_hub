@@ -11,20 +11,20 @@ export async function scrapeJobkorea(browser: Browser): Promise<JobPosting[]> {
 
   try {
     console.log('[잡코리아] 페이지 로딩 중...');
-    await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 20000 });
-    console.log('[잡코리아] 페이지 로드 완료, 리스트 대기 중...');
-    const selector = '.list-default .post-list-line, .list-default li.post-list-line';
-    await page.waitForSelector(selector, { timeout: 12000 });
-    console.log('[잡코리아] 리스트 선택자 발견');
+    await page.goto(URL, { waitUntil: 'load', timeout: 25000 });
+    console.log('[잡코리아] 페이지 로드 완료');
+
+    const bodyText = await page.evaluate(() => document.body.innerHTML.slice(0, 2000));
+    console.log('[잡코리아] body HTML 앞부분:', bodyText);
+
+    await page.waitForSelector('.list-default .post-list-line', { timeout: 10000 });
 
     const jobs = await page.evaluate((t: string) => {
-      const items = document.querySelectorAll('.list-default .post-list-line');
-      return Array.from(items).slice(0, 30).map((item) => {
-        const titleEl = item.querySelector('.post-list-info .title a, .information-title a');
-        const companyEl = item.querySelector('.post-list-corp .name a, .corp-name a');
-        const locationEl = item.querySelector('.post-list-info .work-place, .work-place');
-        const experienceEl = item.querySelector('.post-list-info .career, .career');
-
+      return Array.from(document.querySelectorAll('.list-default .post-list-line')).slice(0, 30).map((item) => {
+        const titleEl = item.querySelector('.information-title a, .post-list-info .title a');
+        const companyEl = item.querySelector('.corp-name a, .post-list-corp .name a');
+        const locationEl = item.querySelector('.work-place, .post-list-info .work-place');
+        const experienceEl = item.querySelector('.career, .post-list-info .career');
         const href = titleEl?.getAttribute('href') ?? '';
         const id = href.match(/GI_No=(\d+)/)?.[1] ?? Math.random().toString(36).slice(2, 9);
 
@@ -43,15 +43,11 @@ export async function scrapeJobkorea(browser: Browser): Promise<JobPosting[]> {
       });
     }, today());
 
-    if (jobs.length === 0) {
-      console.warn('[잡코리아] ⚠️  수집된 공고 0건 — 선택자 확인 필요');
-    } else {
-      console.log(`[잡코리아] ✅ ${jobs.length}건 수집`);
-    }
+    console.log(`[잡코리아] ✅ ${jobs.length}건 수집`);
     return jobs;
   } catch (err) {
-    console.error('[잡코리아] 예외 발생:', err instanceof Error ? err.message : err);
-    throw err;
+    console.error('[잡코리아] ❌ 실패 (빈 배열 반환):', err instanceof Error ? err.message : err);
+    return [];
   } finally {
     await context.close();
   }

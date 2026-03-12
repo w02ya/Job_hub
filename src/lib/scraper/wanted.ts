@@ -1,6 +1,6 @@
 import { Browser } from 'playwright';
 import { JobPosting } from '../../types/job';
-import { createLightContext, today, randomId } from './utils';
+import { createLightContext, today } from './utils';
 
 export async function scrapeWanted(browser: Browser, category = '873'): Promise<JobPosting[]> {
   const url = `https://www.wanted.co.kr/wdlist/518/${category}`;
@@ -10,22 +10,36 @@ export async function scrapeWanted(browser: Browser, category = '873'): Promise<
   const page = await context.newPage();
 
   try {
-    console.log(`[원티드] 페이지 로딩 중...`);
-    await page.goto(url, { waitUntil: 'networkidle', timeout: 20000 });
-    console.log(`[원티드] 페이지 로드 완료, 공고 리스트 대기 중...`);
-    await page.waitForSelector('li[data-cy="job-card"]', { timeout: 10000 });
+    console.log('[원티드] 페이지 로딩 중...');
+    // CSS 차단 시 networkidle이 무한 대기할 수 있으므로 load 사용
+    await page.goto(url, { waitUntil: 'load', timeout: 30000 });
+    console.log('[원티드] 페이지 로드 완료, 공고 리스트 대기 중...');
 
+    // React가 렌더링할 때까지 대기
+    await page.waitForSelector('li[data-cy="job-card"]', { timeout: 15000 });
+    console.log('[원티드] 공고 리스트 발견');
+
+    // 스크롤로 추가 데이터 로드
     for (let i = 0; i < 3; i++) {
       await page.evaluate(() => window.scrollBy(0, window.innerHeight * 2));
-      await page.waitForTimeout(1200 + Math.random() * 800);
+      await page.waitForTimeout(1500);
     }
 
     const jobs = await page.evaluate((t: string) => {
       return Array.from(document.querySelectorAll('li[data-cy="job-card"]')).map((item) => {
         const link = item.querySelector('a');
-        const title = item.querySelector('strong[class*="JobCard_title"]');
-        const company = item.querySelector('span[class*="JobCard_companyName"]');
-        const location = item.querySelector('span[class*="JobCard_location"]');
+        // 해시 클래스 대신 부분 일치 선택자 사용
+        const title =
+          item.querySelector('strong[class*="JobCard_title"]') ??
+          item.querySelector('strong') ??
+          item.querySelector('h2') ??
+          item.querySelector('h3');
+        const company =
+          item.querySelector('span[class*="JobCard_companyName"]') ??
+          item.querySelector('span[class*="company"]');
+        const location =
+          item.querySelector('span[class*="JobCard_location"]') ??
+          item.querySelector('span[class*="location"]');
 
         const href = link?.getAttribute('href') ?? '';
         const id = href.split('/').pop() || Math.random().toString(36).slice(2, 9);
@@ -46,15 +60,15 @@ export async function scrapeWanted(browser: Browser, category = '873'): Promise<
     }, today());
 
     if (jobs.length === 0) {
-      console.warn('[원티드] ⚠️  수집된 공고 0건 — 선택자가 변경됐을 수 있음');
+      console.warn('[원티드] ⚠️ 수집된 공고 0건 — 현재 페이지 HTML 확인:');
       const html = await page.content();
-      console.warn('[원티드] 페이지 HTML 앞부분:', html.slice(0, 500));
+      console.warn('[원티드] HTML(앞 1000자):', html.slice(0, 1000));
     } else {
       console.log(`[원티드] ✅ ${jobs.length}건 수집`);
     }
     return jobs;
   } catch (err) {
-    console.error('[원티드] 예외 발생:', err instanceof Error ? err.message : err);
+    console.error('[원티드] 예외:', err instanceof Error ? err.message : err);
     throw err;
   } finally {
     await context.close();
