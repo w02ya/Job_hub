@@ -1,0 +1,5 @@
+{
+  "name": "채용 모아 (JobHub)",
+  "description": "원티드, 사람인 등 주요 채용 사이트의 공고를 한곳에 모아 보여주는 개발자 맞춤형 대시보드",
+  "requestFramePermissions": []
+}
